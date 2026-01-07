@@ -1,4 +1,4 @@
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import fs from "fs/promises";
@@ -63,33 +63,6 @@ server.registerTool(
         content: [{ type: "text", text: `Error writing file: ${error.message}` }],
         isError: true,
       };
-    }
-  }
-);
-
-/**
- * Resource to read a file via URI
- */
-server.registerResource(
-  "file",
-  new ResourceTemplate("file:///{path}", { list: undefined }),
-  {
-    mimeType: "text/plain",
-  },
-  async (uri, variables) => {
-    const filePath = variables.path;
-    try {
-      const content = await fs.readFile(path.resolve(filePath), "utf-8");
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            text: content,
-          },
-        ],
-      };
-    } catch (error) {
-      throw new Error(`Resource error: ${error.message}`);
     }
   }
 );
