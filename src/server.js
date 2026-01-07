@@ -7,6 +7,10 @@ import { exec } from "child_process";
 import util from "util";
 
 const execAsync = util.promisify(exec);
+const resolveRepoPath = (repoPath) =>
+  repoPath ? path.resolve(repoPath) : process.cwd();
+const runGit = (args, repoPath) =>
+  execAsync(`git ${args.join(" ")}`, { cwd: resolveRepoPath(repoPath) });
 
 // Initialize the MCP server
 const server = new McpServer({
@@ -74,11 +78,16 @@ server.registerTool(
   "git_status",
   {
     description: "Get the status of the git repository",
-    inputSchema: z.object({}),
+    inputSchema: z.object({
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
+    }),
   },
-  async () => {
+  async ({ repoPath }) => {
     try {
-      const { stdout } = await execAsync("git status");
+      const { stdout } = await runGit(["status"], repoPath);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -101,15 +110,19 @@ server.registerTool(
     inputSchema: z.object({
       staged: z.boolean().optional().describe("Whether to show staged changes"),
       file: z.string().optional().describe("Specific file to diff"),
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
     }),
   },
-  async ({ staged, file }) => {
+  async ({ staged, file, repoPath }) => {
     try {
       const args = ["diff"];
       if (staged) args.push("--staged");
       if (file) args.push(file);
-      
-      const { stdout } = await execAsync(`git ${args.join(" ")}`);
+
+      const { stdout } = await runGit(args, repoPath);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -131,12 +144,16 @@ server.registerTool(
     description: "Add files to git stage",
     inputSchema: z.object({
       files: z.array(z.string()).describe("List of files to add"),
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
     }),
   },
-  async ({ files }) => {
+  async ({ files, repoPath }) => {
     try {
-      const fileList = files.join(" ");
-      await execAsync(`git add ${fileList}`);
+      const args = ["add", ...files];
+      await runGit(args, repoPath);
       return {
         content: [{ type: "text", text: `Successfully added: ${files.join(", ")}` }],
       };
@@ -158,13 +175,20 @@ server.registerTool(
     description: "Commit changes to git",
     inputSchema: z.object({
       message: z.string().describe("Commit message"),
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
     }),
   },
-  async ({ message }) => {
+  async ({ message, repoPath }) => {
     try {
       // Escape quotes in message to prevent shell issues
       const escapedMessage = message.replace(/"/g, '\\"');
-      const { stdout } = await execAsync(`git commit -m "${escapedMessage}"`);
+      const { stdout } = await runGit(
+        ["commit", "-m", `"${escapedMessage}"`],
+        repoPath
+      );
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -186,11 +210,15 @@ server.registerTool(
     description: "Show git commit log",
     inputSchema: z.object({
       limit: z.number().optional().default(10).describe("Number of commits to show"),
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
     }),
   },
-  async ({ limit }) => {
+  async ({ limit, repoPath }) => {
     try {
-      const { stdout } = await execAsync(`git log -n ${limit}`);
+      const { stdout } = await runGit(["log", "-n", String(limit)], repoPath);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -210,11 +238,16 @@ server.registerTool(
   "git_worktree_list",
   {
     description: "List git worktrees",
-    inputSchema: z.object({}),
+    inputSchema: z.object({
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
+    }),
   },
-  async () => {
+  async ({ repoPath }) => {
     try {
-      const { stdout } = await execAsync("git worktree list");
+      const { stdout } = await runGit(["worktree", "list"], repoPath);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -237,11 +270,18 @@ server.registerTool(
     inputSchema: z.object({
       path: z.string().describe("Path to the new worktree"),
       branch: z.string().describe("Branch to checkout"),
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
     }),
   },
-  async ({ path: worktreePath, branch }) => {
+  async ({ path: worktreePath, branch, repoPath }) => {
     try {
-      const { stdout } = await execAsync(`git worktree add ${worktreePath} ${branch}`);
+      const { stdout } = await runGit(
+        ["worktree", "add", worktreePath, branch],
+        repoPath
+      );
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -263,11 +303,18 @@ server.registerTool(
     description: "Remove a git worktree",
     inputSchema: z.object({
       path: z.string().describe("Path of the worktree to remove"),
+      repoPath: z
+        .string()
+        .optional()
+        .describe("Path to the git repository (defaults to current working directory)"),
     }),
   },
-  async ({ path: worktreePath }) => {
+  async ({ path: worktreePath, repoPath }) => {
     try {
-      const { stdout } = await execAsync(`git worktree remove ${worktreePath}`);
+      const { stdout } = await runGit(
+        ["worktree", "remove", worktreePath],
+        repoPath
+      );
       return {
         content: [{ type: "text", text: stdout }],
       };
