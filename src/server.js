@@ -7,6 +7,10 @@ import { exec } from "child_process";
 import util from "util";
 
 const execAsync = util.promisify(exec);
+const repoPathSchema = z
+  .string()
+  .optional()
+  .describe("Path to the git repository (defaults to current working directory)");
 const resolveRepoPath = (repoPath) =>
   repoPath ? path.resolve(repoPath) : process.cwd();
 const runGit = (args, repoPath) =>
@@ -79,10 +83,7 @@ server.registerTool(
   {
     description: "Get the status of the git repository",
     inputSchema: z.object({
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ repoPath }) => {
@@ -110,10 +111,7 @@ server.registerTool(
     inputSchema: z.object({
       staged: z.boolean().optional().describe("Whether to show staged changes"),
       file: z.string().optional().describe("Specific file to diff"),
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ staged, file, repoPath }) => {
@@ -144,10 +142,7 @@ server.registerTool(
     description: "Add files to git stage",
     inputSchema: z.object({
       files: z.array(z.string()).describe("List of files to add"),
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ files, repoPath }) => {
@@ -175,10 +170,7 @@ server.registerTool(
     description: "Commit changes to git",
     inputSchema: z.object({
       message: z.string().describe("Commit message"),
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ message, repoPath }) => {
@@ -210,10 +202,7 @@ server.registerTool(
     description: "Show git commit log",
     inputSchema: z.object({
       limit: z.number().optional().default(10).describe("Number of commits to show"),
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ limit, repoPath }) => {
@@ -239,10 +228,7 @@ server.registerTool(
   {
     description: "List git worktrees",
     inputSchema: z.object({
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ repoPath }) => {
@@ -270,10 +256,7 @@ server.registerTool(
     inputSchema: z.object({
       path: z.string().describe("Path to the new worktree"),
       branch: z.string().describe("Branch to checkout"),
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ path: worktreePath, branch, repoPath }) => {
@@ -303,10 +286,7 @@ server.registerTool(
     description: "Remove a git worktree",
     inputSchema: z.object({
       path: z.string().describe("Path of the worktree to remove"),
-      repoPath: z
-        .string()
-        .optional()
-        .describe("Path to the git repository (defaults to current working directory)"),
+      repoPath: repoPathSchema,
     }),
   },
   async ({ path: worktreePath, repoPath }) => {
