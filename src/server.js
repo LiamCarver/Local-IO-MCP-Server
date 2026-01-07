@@ -247,6 +247,44 @@ server.registerTool(
 );
 
 /**
+ * Tool to delete a git branch
+ */
+server.registerTool(
+  "git_branch_delete",
+  {
+    description: "Delete a git branch",
+    inputSchema: z.object({
+      branch: z.string().describe("Branch to delete"),
+      force: z
+        .boolean()
+        .optional()
+        .describe("Force deletion of the branch"),
+      repoPath: repoPathSchema,
+    }),
+  },
+  async ({ branch, force, repoPath }) => {
+    try {
+      const flag = force ? "-D" : "-d";
+      const { stdout } = await runGit(["branch", flag, branch], repoPath);
+      return {
+        content: [{ type: "text", text: stdout }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error deleting git branch: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+
+/**
  * Tool to list git worktrees
  */
 server.registerTool(
