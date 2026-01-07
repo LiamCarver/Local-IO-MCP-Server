@@ -76,6 +76,32 @@ server.registerTool(
 );
 
 /**
+ * Tool to delete a file
+ */
+server.registerTool(
+  "delete_file",
+  {
+    description: "Delete a file",
+    inputSchema: z.object({
+      path: z.string().describe("The path to the file to delete"),
+    }),
+  },
+  async ({ path: filePath }) => {
+    try {
+      await fs.unlink(path.resolve(filePath));
+      return {
+        content: [{ type: "text", text: `Successfully deleted ${filePath}` }],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Error deleting file: ${error.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Tool to get git status
  */
 server.registerTool(
