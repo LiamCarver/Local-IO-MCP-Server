@@ -319,14 +319,14 @@ server.registerTool(
     description: "Add a new git worktree",
     inputSchema: z.object({
       path: z.string().describe("Path to the new worktree"),
-      branch: z.string().describe("Branch to checkout"),
+      branch: z.string().describe("New branch to create"),
       repoPath: repoPathSchema,
     }),
   },
   async ({ path: worktreePath, branch, repoPath }) => {
     try {
       const { stdout } = await runGit(
-        ["worktree", "add", worktreePath, branch],
+        ["worktree", "add", "-b", branch, worktreePath],
         repoPath
       );
       return {
