@@ -283,6 +283,44 @@ server.registerTool(
   }
 );
 
+/**
+ * Tool to create a git branch
+ */
+server.registerTool(
+  "git_branch_create",
+  {
+    description: "Create a git branch",
+    inputSchema: z.object({
+      branch: z.string().describe("Branch name to create"),
+      startPoint: z
+        .string()
+        .optional()
+        .describe("Optional start point (commit, tag, or branch)"),
+      repoPath: repoPathSchema,
+    }),
+  },
+  async ({ branch, startPoint, repoPath }) => {
+    try {
+      const args = ["branch", branch];
+      if (startPoint) args.push(startPoint);
+      const { stdout } = await runGit(args, repoPath);
+      return {
+        content: [{ type: "text", text: stdout }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating git branch: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
 
 /**
  * Start the server using Stdio transport
