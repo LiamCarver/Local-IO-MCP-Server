@@ -5,6 +5,7 @@ RUN apt-get update \
        git \
        ca-certificates \
   && update-ca-certificates \
+  && git config --global push.autoSetupRemote true \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -282,6 +282,56 @@ server.registerTool(
 );
 
 /**
+ * Tool to set git remote origin URL using env vars
+ */
+server.registerTool(
+  "git_remote_set_url_from_env",
+  {
+    description:
+      "Set git remote origin URL using PROJECT_REPO and GITHUB_TOKEN environment variables",
+    inputSchema: z.object({
+      repoPath: repoPathSchema,
+    }),
+  },
+  async ({ repoPath }) => {
+    const repo = process.env.PROJECT_REPO;
+    const token = process.env.GITHUB_TOKEN;
+    if (!repo || !token) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Missing PROJECT_REPO or GITHUB_TOKEN environment variable.",
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    try {
+      const url = "https://" + token + "@github.com/" + repo + ".git";
+      const { stdout } = await runGit(
+        ["remote", "set-url", "origin", url],
+        repoPath
+      );
+      return {
+        content: [{ type: "text", text: stdout || "Remote URL updated." }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error setting git remote URL: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Tool to delete a git branch
  */
 server.registerTool(
