@@ -38,24 +38,6 @@ To allow LLMs or other clients to interact with the Git repository in the curren
     - `limit` (number, optional): Max number of commits to show.
 - **Output:** List of commits.
 
-### 6. `git_worktree_list`
-- **Description:** List details of each working tree.
-- **Input:** None.
-- **Output:** List of worktrees (path, HEAD, branch).
-
-### 7. `git_worktree_add`
-- **Description:** Create a new working tree.
-- **Input:**
-    - `path` (string): Path to the new working tree.
-    - `branch` (string): Branch name to check out (will be created if it doesn't exist, or checked out if it does).
-- **Output:** Success message.
-
-### 8. `git_worktree_remove`
-- **Description:** Remove a working tree.
-- **Input:**
-    - `path` (string): Path of the working tree to remove.
-- **Output:** Success message.
-
 ## Implementation Details
 - We will use `child_process.exec` or `spawn` to run git commands.
 - We need to handle errors gracefully (e.g., not a git repo).
