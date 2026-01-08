@@ -319,12 +319,12 @@ server.registerTool(
 );
 
 /**
- * Tool to create a git branch
+ * Tool to create and push a git branch
  */
 server.registerTool(
-  "git_branch_create",
+  "git_branch_create_and_push",
   {
-    description: "Create a git branch",
+    description: "Create and push a git branch",
     inputSchema: z.object({
       branch: z.string().describe("Branch name to create"),
       startPoint: z
@@ -336,18 +336,24 @@ server.registerTool(
   },
   async ({ branch, startPoint, repoPath }) => {
     try {
-      const args = ["checkout", "-b", branch];
-      if (startPoint) args.push(startPoint);
-      const { stdout } = await runGit(args, repoPath);
+      const createArgs = ["checkout", "-b", branch];
+      if (startPoint) createArgs.push(startPoint);
+      const { stdout: createStdout } = await runGit(createArgs, repoPath);
+      const { stdout: pushStdout } = await runGit(
+        ["push", "-u", "origin", branch],
+        repoPath
+      );
       return {
-        content: [{ type: "text", text: stdout }],
+        content: [
+          { type: "text", text: `${createStdout}${pushStdout}` },
+        ],
       };
     } catch (error) {
       return {
         content: [
           {
             type: "text",
-            text: `Error creating git branch: ${error.message}`,
+            text: `Error creating and pushing git branch: ${error.message}`,
           },
         ],
         isError: true,
