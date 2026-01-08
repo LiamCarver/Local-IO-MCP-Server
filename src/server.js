@@ -102,6 +102,41 @@ server.registerTool(
 );
 
 /**
+ * Tool to list files and folders in a path
+ */
+server.registerTool(
+  "list_dir",
+  {
+    description: "List files and folders from a path",
+    inputSchema: z.object({
+      path: z.string().describe("The directory path to list"),
+    }),
+  },
+  async ({ path: dirPath }) => {
+    try {
+      const resolvedPath = path.resolve(dirPath);
+      const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
+      const listing = entries
+        .map((entry) => {
+          const type = entry.isDirectory() ? "dir" : "file";
+          return `${type}\t${entry.name}`;
+        })
+        .join("\n");
+      return {
+        content: [{ type: "text", text: listing }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          { type: "text", text: `Error listing directory: ${error.message}` },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Tool to get git status
  */
 server.registerTool(
