@@ -336,7 +336,7 @@ server.registerTool(
   },
   async ({ branch, startPoint, repoPath }) => {
     try {
-      const args = ["branch", branch];
+      const args = ["checkout", "-b", branch];
       if (startPoint) args.push(startPoint);
       const { stdout } = await runGit(args, repoPath);
       return {
