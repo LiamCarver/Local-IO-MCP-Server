@@ -309,7 +309,11 @@ server.registerTool(
     }
 
     try {
-      const url = "https://" + token + "@github.com/" + repo + ".git";
+      const repoWithoutScheme = repo
+        .replace(/^https?:\/\//, "")
+        .replace(/^[^@]+@/, "")
+        .replace(/\/+$/, "");
+      const url = `https://${token}@${repoWithoutScheme}`;
       const { stdout } = await runGit(
         ["remote", "set-url", "origin", url],
         repoPath
@@ -426,3 +430,9 @@ main().catch((error) => {
   console.error("Server error:", error);
   process.exit(1);
 });
+
+
+
+
+
+
