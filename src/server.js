@@ -363,6 +363,42 @@ server.registerTool(
 );
 
 /**
+ * Tool to push changes
+ */
+server.registerTool(
+  "git_push",
+  {
+    description: "Push changes to a git remote",
+    inputSchema: z.object({
+      remote: z
+        .string()
+        .optional()
+        .default("origin")
+        .describe("Remote name to push to"),
+      branch: z
+        .string()
+        .optional()
+        .describe("Optional branch name to push"),
+    }),
+  },
+  async ({ remote, branch }) => {
+    try {
+      const args = ["push", remote];
+      if (branch) args.push(branch);
+      const { stdout } = await runGit(args);
+      return {
+        content: [{ type: "text", text: stdout }],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Error running git push: ${error.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Tool to show git log
  */
 server.registerTool(
