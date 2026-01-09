@@ -162,6 +162,64 @@ server.registerTool(
 );
 
 /**
+ * Tool to create a folder
+ */
+server.registerTool(
+  "create_folder",
+  {
+    description: "Create a folder in the workspace folder",
+    inputSchema: z.object({
+      name: z
+        .string()
+        .min(1)
+        .describe("Folder name inside the workspace folder"),
+    }),
+  },
+  async ({ name }) => {
+    try {
+      await fs.mkdir(getWorkspaceFilePath(name), { recursive: true });
+      return {
+        content: [{ type: "text", text: `Successfully created ${name}` }],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Error creating folder: ${error.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool to delete a folder
+ */
+server.registerTool(
+  "delete_folder",
+  {
+    description: "Delete a folder from the workspace folder",
+    inputSchema: z.object({
+      name: z
+        .string()
+        .min(1)
+        .describe("Folder name inside the workspace folder"),
+    }),
+  },
+  async ({ name }) => {
+    try {
+      await fs.rm(getWorkspaceFilePath(name), { recursive: true, force: true });
+      return {
+        content: [{ type: "text", text: `Successfully deleted ${name}` }],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Error deleting folder: ${error.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Tool to list files and folders in the workspace folder
  */
 server.registerTool(
