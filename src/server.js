@@ -5,16 +5,29 @@ import fs from "fs/promises";
 import path from "path";
 import { exec } from "child_process";
 import util from "util";
+import crypto from "crypto";
+
+const WORKSPACE_ROOT = "/workspace";
+let workspaceFolderName = null;
 
 const execAsync = util.promisify(exec);
-const repoPathSchema = z
-  .string()
-  .optional()
-  .describe("Path to the git repository (defaults to current working directory)");
-const resolveRepoPath = (repoPath) =>
-  repoPath ? path.resolve(repoPath) : process.cwd();
-const runGit = (args, repoPath) =>
-  execAsync(`git ${args.join(" ")}`, { cwd: resolveRepoPath(repoPath) });
+const getWorkspaceDir = () => {
+  if (!workspaceFolderName) {
+    throw new Error("Workspace not initialized. Run initialize_work first.");
+  }
+  return path.join(WORKSPACE_ROOT, workspaceFolderName);
+};
+const getWorkspaceFilePath = (fileName) => {
+  const workspaceDir = getWorkspaceDir();
+  const resolvedWorkspaceDir = path.resolve(workspaceDir);
+  const resolvedPath = path.resolve(workspaceDir, fileName);
+  if (!resolvedPath.startsWith(resolvedWorkspaceDir + path.sep)) {
+    throw new Error("Invalid file name.");
+  }
+  return resolvedPath;
+};
+const runGit = (args) =>
+  execAsync(`git ${args.join(" ")}`, { cwd: getWorkspaceDir() });
 
 // Initialize the MCP server
 const server = new McpServer({
@@ -23,19 +36,54 @@ const server = new McpServer({
 });
 
 /**
+ * Tool to initialize work
+ */
+server.registerTool(
+  "initialize_work",
+  {
+    description: "Create and store a new workspace folder under /workspace",
+    inputSchema: z.object({}).strict(),
+  },
+  async () => {
+    try {
+      const folderName = crypto.randomUUID();
+      const folderPath = path.join(WORKSPACE_ROOT, folderName);
+      await fs.mkdir(WORKSPACE_ROOT, { recursive: true });
+      await fs.mkdir(folderPath);
+      workspaceFolderName = folderName;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Initialized workspace folder: ${folderName}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          { type: "text", text: `Error initializing workspace: ${error.message}` },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Tool to read a file
  */
 server.registerTool(
   "read_file",
   {
-    description: "Read the content of a file",
+    description: "Read the content of a file in the workspace folder",
     inputSchema: z.object({
-      path: z.string().describe("The path to the file to read"),
+      name: z.string().min(1).describe("File name inside the workspace folder"),
     }),
   },
-  async ({ path: filePath }) => {
+  async ({ name }) => {
     try {
-      const content = await fs.readFile(path.resolve(filePath), "utf-8");
+      const content = await fs.readFile(getWorkspaceFilePath(name), "utf-8");
       return {
         content: [{ type: "text", text: content }],
       };
@@ -54,17 +102,17 @@ server.registerTool(
 server.registerTool(
   "write_file",
   {
-    description: "Write content to a file",
+    description: "Write content to a file in the workspace folder",
     inputSchema: z.object({
-      path: z.string().describe("The path where the file should be saved"),
+      name: z.string().min(1).describe("File name inside the workspace folder"),
       content: z.string().describe("The content to write to the file"),
     }),
   },
-  async ({ path: filePath, content }) => {
+  async ({ name, content }) => {
     try {
-      await fs.writeFile(path.resolve(filePath), content, "utf-8");
+      await fs.writeFile(getWorkspaceFilePath(name), content, "utf-8");
       return {
-        content: [{ type: "text", text: `Successfully wrote to ${filePath}` }],
+        content: [{ type: "text", text: `Successfully wrote to ${name}` }],
       };
     } catch (error) {
       return {
@@ -81,16 +129,16 @@ server.registerTool(
 server.registerTool(
   "delete_file",
   {
-    description: "Delete a file",
+    description: "Delete a file from the workspace folder",
     inputSchema: z.object({
-      path: z.string().describe("The path to the file to delete"),
+      name: z.string().min(1).describe("File name inside the workspace folder"),
     }),
   },
-  async ({ path: filePath }) => {
+  async ({ name }) => {
     try {
-      await fs.unlink(path.resolve(filePath));
+      await fs.unlink(getWorkspaceFilePath(name));
       return {
-        content: [{ type: "text", text: `Successfully deleted ${filePath}` }],
+        content: [{ type: "text", text: `Successfully deleted ${name}` }],
       };
     } catch (error) {
       return {
@@ -102,19 +150,17 @@ server.registerTool(
 );
 
 /**
- * Tool to list files and folders in a path
+ * Tool to list files and folders in the workspace folder
  */
 server.registerTool(
   "list_dir",
   {
-    description: "List files and folders from a path",
-    inputSchema: z.object({
-      path: z.string().describe("The directory path to list"),
-    }),
+    description: "List files and folders in the workspace folder",
+    inputSchema: z.object({}).strict(),
   },
-  async ({ path: dirPath }) => {
+  async () => {
     try {
-      const resolvedPath = path.resolve(dirPath);
+      const resolvedPath = getWorkspaceDir();
       const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
       const listing = entries
         .map((entry) => {
@@ -143,13 +189,11 @@ server.registerTool(
   "git_status",
   {
     description: "Get the status of the git repository",
-    inputSchema: z.object({
-      repoPath: repoPathSchema,
-    }),
+    inputSchema: z.object({}).strict(),
   },
-  async ({ repoPath }) => {
+  async () => {
     try {
-      const { stdout } = await runGit(["status"], repoPath);
+      const { stdout } = await runGit(["status"]);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -172,16 +216,15 @@ server.registerTool(
     inputSchema: z.object({
       staged: z.boolean().optional().describe("Whether to show staged changes"),
       file: z.string().optional().describe("Specific file to diff"),
-      repoPath: repoPathSchema,
     }),
   },
-  async ({ staged, file, repoPath }) => {
+  async ({ staged, file }) => {
     try {
       const args = ["diff"];
       if (staged) args.push("--staged");
       if (file) args.push(file);
 
-      const { stdout } = await runGit(args, repoPath);
+      const { stdout } = await runGit(args);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -203,13 +246,12 @@ server.registerTool(
     description: "Add files to git stage",
     inputSchema: z.object({
       files: z.array(z.string()).describe("List of files to add"),
-      repoPath: repoPathSchema,
     }),
   },
-  async ({ files, repoPath }) => {
+  async ({ files }) => {
     try {
       const args = ["add", ...files];
-      await runGit(args, repoPath);
+      await runGit(args);
       return {
         content: [{ type: "text", text: `Successfully added: ${files.join(", ")}` }],
       };
@@ -231,17 +273,13 @@ server.registerTool(
     description: "Commit changes to git",
     inputSchema: z.object({
       message: z.string().describe("Commit message"),
-      repoPath: repoPathSchema,
     }),
   },
-  async ({ message, repoPath }) => {
+  async ({ message }) => {
     try {
       // Escape quotes in message to prevent shell issues
       const escapedMessage = message.replace(/"/g, '\\"');
-      const { stdout } = await runGit(
-        ["commit", "-m", `"${escapedMessage}"`],
-        repoPath
-      );
+      const { stdout } = await runGit(["commit", "-m", `"${escapedMessage}"`]);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -263,12 +301,11 @@ server.registerTool(
     description: "Show git commit log",
     inputSchema: z.object({
       limit: z.number().optional().default(10).describe("Number of commits to show"),
-      repoPath: repoPathSchema,
     }),
   },
-  async ({ limit, repoPath }) => {
+  async ({ limit }) => {
     try {
-      const { stdout } = await runGit(["log", "-n", String(limit)], repoPath);
+      const { stdout } = await runGit(["log", "-n", String(limit)]);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -289,11 +326,9 @@ server.registerTool(
   {
     description:
       "Set git remote origin URL using PROJECT_REPO and GITHUB_TOKEN environment variables",
-    inputSchema: z.object({
-      repoPath: repoPathSchema,
-    }),
+    inputSchema: z.object({}).strict(),
   },
-  async ({ repoPath }) => {
+  async () => {
     const repo = process.env.PROJECT_REPO;
     const token = process.env.GITHUB_TOKEN;
     if (!repo || !token) {
@@ -314,10 +349,7 @@ server.registerTool(
         .replace(/^[^@]+@/, "")
         .replace(/\/+$/, "");
       const url = `https://${token}@${repoWithoutScheme}`;
-      const { stdout } = await runGit(
-        ["remote", "set-url", "origin", url],
-        repoPath
-      );
+      const { stdout } = await runGit(["remote", "set-url", "origin", url]);
       return {
         content: [{ type: "text", text: stdout || "Remote URL updated." }],
       };
@@ -348,13 +380,12 @@ server.registerTool(
         .boolean()
         .optional()
         .describe("Force deletion of the branch"),
-      repoPath: repoPathSchema,
     }),
   },
-  async ({ branch, force, repoPath }) => {
+  async ({ branch, force }) => {
     try {
       const flag = force ? "-D" : "-d";
-      const { stdout } = await runGit(["branch", flag, branch], repoPath);
+      const { stdout } = await runGit(["branch", flag, branch]);
       return {
         content: [{ type: "text", text: stdout }],
       };
@@ -385,22 +416,21 @@ server.registerTool(
         .string()
         .optional()
         .describe("Optional start point (commit, tag, or branch)"),
-      repoPath: repoPathSchema,
     }),
   },
-  async ({ branch, startPoint, repoPath }) => {
+  async ({ branch, startPoint }) => {
     try {
       const createArgs = ["checkout", "-b", branch];
       if (startPoint) createArgs.push(startPoint);
-      const { stdout: createStdout } = await runGit(createArgs, repoPath);
-      const { stdout: pushStdout } = await runGit(
-        ["push", "-u", "origin", branch],
-        repoPath
-      );
+      const { stdout: createStdout } = await runGit(createArgs);
+      const { stdout: pushStdout } = await runGit([
+        "push",
+        "-u",
+        "origin",
+        branch,
+      ]);
       return {
-        content: [
-          { type: "text", text: `${createStdout}${pushStdout}` },
-        ],
+        content: [{ type: "text", text: `${createStdout}${pushStdout}` }],
       };
     } catch (error) {
       return {
@@ -416,7 +446,6 @@ server.registerTool(
   }
 );
 
-
 /**
  * Start the server using Stdio transport
  */
@@ -430,9 +459,3 @@ main().catch((error) => {
   console.error("Server error:", error);
   process.exit(1);
 });
-
-
-
-
-
-
