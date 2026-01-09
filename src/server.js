@@ -57,7 +57,10 @@ server.registerTool(
         }
         const sourcePath = path.join(WORKSPACE_ROOT, entry.name);
         const destinationPath = path.join(folderPath, entry.name);
-        await fs.rename(sourcePath, destinationPath);
+        await fs.cp(sourcePath, destinationPath, {
+          recursive: entry.isDirectory(),
+        });
+        await fs.rm(sourcePath, { recursive: entry.isDirectory(), force: true });
       }
       workspaceFolderName = folderName;
       return {
