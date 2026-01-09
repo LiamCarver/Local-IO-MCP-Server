@@ -50,6 +50,15 @@ server.registerTool(
       const folderPath = path.join(WORKSPACE_ROOT, folderName);
       await fs.mkdir(WORKSPACE_ROOT, { recursive: true });
       await fs.mkdir(folderPath);
+      const entries = await fs.readdir(WORKSPACE_ROOT, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === folderName) {
+          continue;
+        }
+        const sourcePath = path.join(WORKSPACE_ROOT, entry.name);
+        const destinationPath = path.join(folderPath, entry.name);
+        await fs.rename(sourcePath, destinationPath);
+      }
       workspaceFolderName = folderName;
       return {
         content: [
